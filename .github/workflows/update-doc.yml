@@ -15,6 +15,9 @@ jobs:
       - name: Install pandoc
         run: sudo apt-get update && sudo apt-get install -y pandoc
 
+      - name: Install Python deps
+        run: pip install pyjwt requests
+
       - name: Convert md to docx
         run: pandoc Law.md -o output.docx
 
@@ -22,7 +25,8 @@ jobs:
         id: auth
         run: |
           echo '${{ secrets.GDRIVE_SERVICE_ACCOUNT }}' > key.json
-          ACCESS_TOKEN=$(python3 <<EOF
+
+          TOKEN=$(python3 - <<'EOF'
 import json, jwt, time, requests
 
 with open("key.json") as f:
@@ -47,7 +51,8 @@ r = requests.post("https://oauth2.googleapis.com/token", data={
 print(r.json()["access_token"])
 EOF
 )
-          echo "token=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
+
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
       - name: Upload to Google Docs
         run: |
