@@ -1,0 +1,58 @@
+name: Update Google Docs
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  update-doc:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pandoc
+        run: sudo apt-get update && sudo apt-get install -y pandoc
+
+      - name: Convert md to docx
+        run: pandoc Law.md -o output.docx
+
+      - name: Auth Google
+        id: auth
+        run: |
+          echo '${{ secrets.GDRIVE_SERVICE_ACCOUNT }}' > key.json
+          ACCESS_TOKEN=$(python3 <<EOF
+import json, jwt, time, requests
+
+with open("key.json") as f:
+    sa = json.load(f)
+
+now = int(time.time())
+payload = {
+    "iss": sa["client_email"],
+    "scope": "https://www.googleapis.com/auth/drive",
+    "aud": "https://oauth2.googleapis.com/token",
+    "exp": now + 3600,
+    "iat": now
+}
+
+token = jwt.encode(payload, sa["private_key"], algorithm="RS256")
+
+r = requests.post("https://oauth2.googleapis.com/token", data={
+    "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+    "assertion": token
+})
+
+print(r.json()["access_token"])
+EOF
+)
+          echo "token=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
+
+      - name: Upload to Google Docs
+        run: |
+          curl -X PATCH \
+            -H "Authorization: Bearer ${{ steps.auth.outputs.token }}" \
+            -F "metadata={mimeType:'application/vnd.google-apps.document'};type=application/json" \
+            -F "file=@output.docx" \
+            "https://www.googleapis.com/upload/drive/v3/files/182N97GCVkAEQXoh4kl3QowXvwQ8wAZz6sj2M297-fHo?uploadType=multipart"
