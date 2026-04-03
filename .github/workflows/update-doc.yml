@@ -19,7 +19,7 @@ jobs:
         run: pip install pyjwt requests
 
       - name: Convert md to docx
-        run: pandoc Law.md -o output.docx
+        run: pandoc Law.md -o output.docx --reference-doc=reference.docx
 
       - name: Write service account key
         run: echo '${{ secrets.GDRIVE_SERVICE_ACCOUNT }}' > key.json
